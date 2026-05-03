@@ -1,0 +1,25 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+env/
+.env
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Data files (we'll keep these out of Git for now)
+*.csv
+*.parquet
+data/
+
+# macOS / IDE
+.DS_Store
+.vscode/
+.idea/
+
+# Outputs
+*.png
+figures/
