@@ -1,13 +1,3 @@
-"""
-simulate.py
------------
-
-Synthetic data generator for the Glosten-Milgrom (1985) two-state
-market making model. Produces panels of trading sessions with known
-ground-truth parameters, suitable for benchmarking the MLE and EM
-estimators developed elsewhere in this project.
-"""
-
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -16,7 +6,9 @@ import numpy as np
 import pandas as pd
 
 
-@dataclass
+# frozen=True makes Panel immutable after construction,
+# protecting ground-truth parameters from accidental mutation.
+@dataclass(frozen=True)
 class Panel:
     """
     A simulated panel of trading sessions under known parameters.
@@ -30,18 +22,10 @@ class Panel:
     V_H, V_L : float
         High and low asset values, with V_H > V_L.
     trades : pandas.DataFrame
-        Trade-level data. Columns:
-            session_id : int     (which session this trade belongs to)
-            trade_idx  : int     (within-session index)
-            V_true     : float   (the realised state for the session)
-            Z_true     : int     (1 if informed, 0 otherwise)
-            direction  : int     (+1 buy, -1 sell)
-            size       : float   (order size)
-            aggressive : int     (1 if aggressive, 0 otherwise)
-            delta_p    : float   (price impact, currently a stub)
-
-    The number of sessions K is derived dynamically from `trades`
-    via the `K` property to prevent inconsistency.
+        Trade-level data. Columns are populated incrementally as
+        the simulator is built; final schema includes:
+            session_id, trade_idx, V_true, Z_true,
+            direction, size, aggressive, delta_p
     """
     mu_true: float
     theta_true: float
@@ -62,3 +46,4 @@ class Panel:
             raise ValueError(f"theta_true must be in [0, 1], got {self.theta_true}")
         if self.V_H <= self.V_L:
             raise ValueError(f"V_H ({self.V_H}) must be strictly greater than V_L ({self.V_L})")
+        # TODO: schema validation on `trades` columns once all are populated.
