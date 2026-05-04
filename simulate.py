@@ -47,3 +47,43 @@ class Panel:
         if self.V_H <= self.V_L:
             raise ValueError(f"V_H ({self.V_H}) must be strictly greater than V_L ({self.V_L})")
         # TODO: schema validation on `trades` columns once all are populated.
+
+def simulate_session(
+    mu: float,
+    theta: float,
+    n_trades: int,
+    V_H: float,
+    V_L: float,
+    session_id: int = 0,
+    rng: np.random.Generator | None = None,
+) -> pd.DataFrame:
+    """
+    Simulate a single trading session under the Glosten-Milgrom model.
+
+    Returns a DataFrame with one row per trade, columns:
+        session_id, trade_idx, V_true, Z_true, direction.
+    """
+    if rng is None:
+        rng = np.random.default_rng()
+
+    # 1. Realised state for this session.
+    V_true = V_H if rng.random() < theta else V_L
+
+    # 2. Informed indicator per trade: Z_i ~ Bernoulli(mu).
+    Z = rng.random(n_trades) < mu
+
+    # 3. Direction:
+    #    informed -> buy iff V_true == V_H
+    #    uninformed -> Bernoulli(0.5)
+    informed_buys = (V_true == V_H)
+    uninformed_buys = rng.random(n_trades) < 0.5
+    is_buy = np.where(Z, informed_buys, uninformed_buys)
+    direction = np.where(is_buy, 1, -1)
+
+    return pd.DataFrame({
+        "session_id": session_id,
+        "trade_idx": np.arange(n_trades),
+        "V_true": V_true,
+        "Z_true": Z.astype(int),
+        "direction": direction,
+    })
