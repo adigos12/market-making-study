@@ -56,12 +56,46 @@ def simulate_session(
     V_L: float,
     session_id: int = 0,
     rng: np.random.Generator | None = None,
+    # --- feature distribution parameters (nuisance parameters of the simulator)
+    size_mu_informed: float = 4.0,
+    size_mu_uninformed: float = 3.0,
+    size_sigma: float = 0.6,
+    p_aggressive_informed: float = 0.7,
+    p_aggressive_uninformed: float = 0.3,
 ) -> pd.DataFrame:
     """
     Simulate a single trading session under the Glosten-Milgrom model.
 
-    Returns a DataFrame with one row per trade, columns:
-        session_id, trade_idx, V_true, Z_true, direction.
+    Adds trade-level features that depend on the latent informed indicator:
+        - size: lognormal, with informed traders trading larger on average
+        - aggressive: Bernoulli, with informed traders more aggressive
+
+    Parameters
+    ----------
+    mu, theta : float
+        Model parameters: informed fraction and prior on V_H.
+    n_trades : int
+        Number of trades in the session.
+    V_H, V_L : float
+        High and low asset values.
+    session_id : int
+        Session label.
+    rng : numpy.random.Generator, optional
+        Random source. Created fresh if None.
+    size_mu_informed, size_mu_uninformed : float
+        Mean of the underlying normal for the lognormal size distribution.
+        Informed traders default to a higher mean (larger orders).
+    size_sigma : float
+        Standard deviation of the underlying normal, shared across classes.
+    p_aggressive_informed, p_aggressive_uninformed : float
+        Bernoulli probability that an order is "aggressive".
+
+    Returns
+    -------
+    pandas.DataFrame
+        One row per trade. Columns:
+            session_id, trade_idx, V_true, Z_true,
+            direction, size, aggressive.
     """
     if rng is None:
         rng = np.random.default_rng()
@@ -80,10 +114,20 @@ def simulate_session(
     is_buy = np.where(Z, informed_buys, uninformed_buys)
     direction = np.where(is_buy, 1, -1)
 
+    # 4. Size: lognormal, mean of the underlying normal depends on Z.
+    size_mu_per_trade = np.where(Z, size_mu_informed, size_mu_uninformed)
+    size = rng.lognormal(mean=size_mu_per_trade, sigma=size_sigma)
+
+    # 5. Aggressive: Bernoulli, probability depends on Z.
+    p_agg = np.where(Z, p_aggressive_informed, p_aggressive_uninformed)
+    aggressive = (rng.random(n_trades) < p_agg).astype(int)
+
     return pd.DataFrame({
         "session_id": session_id,
         "trade_idx": np.arange(n_trades),
         "V_true": V_true,
         "Z_true": Z.astype(int),
         "direction": direction,
+        "size": size,
+        "aggressive": aggressive,
     })
