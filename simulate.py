@@ -131,3 +131,69 @@ def simulate_session(
         "size": size,
         "aggressive": aggressive,
     })
+def simulate_panel(
+    mu: float,
+    theta: float,
+    K: int,
+    n_trades_per_session: int,
+    V_H: float,
+    V_L: float,
+    seed: int | None = None,
+    size_mu_informed: float = 4.0,
+    size_mu_uninformed: float = 3.0,
+    size_sigma: float = 0.6,
+    p_aggressive_informed: float = 0.7,
+    p_aggressive_uninformed: float = 0.3,
+) -> Panel:
+    """
+    Simulate a panel of K independent trading sessions and return as a Panel.
+
+    Parameters
+    ----------
+    mu, theta : float
+        Model parameters.
+    K : int
+        Number of independent sessions.
+    n_trades_per_session : int
+        Trades per session (constant across sessions).
+    V_H, V_L : float
+        High and low asset values.
+    seed : int, optional
+        Top-level seed. If provided, the panel is fully reproducible.
+        If None, a fresh unseeded generator is used.
+
+    Returns
+    -------
+    Panel
+        Frozen Panel object containing the true parameters and the
+        concatenated trades DataFrame.
+    """
+    rng = np.random.default_rng(seed)
+
+    session_frames = [
+        simulate_session(
+            mu=mu,
+            theta=theta,
+            n_trades=n_trades_per_session,
+            V_H=V_H,
+            V_L=V_L,
+            session_id=k,
+            rng=rng,
+            size_mu_informed=size_mu_informed,
+            size_mu_uninformed=size_mu_uninformed,
+            size_sigma=size_sigma,
+            p_aggressive_informed=p_aggressive_informed,
+            p_aggressive_uninformed=p_aggressive_uninformed,
+        )
+        for k in range(K)
+    ]
+
+    trades = pd.concat(session_frames, ignore_index=True)
+
+    return Panel(
+        mu_true=mu,
+        theta_true=theta,
+        V_H=V_H,
+        V_L=V_L,
+        trades=trades,
+    )
